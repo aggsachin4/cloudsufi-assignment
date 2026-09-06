@@ -60,18 +60,3 @@ pytest -q
 
 Do not commit `.env`; `.env.example` contains only the configuration shape.
 
-## Known limitations
-
-- Scanned/image-only PDFs need OCR before upload because the app extracts text rather than images.
-- The index is in memory and is rebuilt when the app session restarts.
-- The application uses Gemini APIs, so network access, API availability, and usage cost apply.
-- Citations identify the source document and page, not an exact character span.
-- There is no authentication, multi-user persistence, or document deletion workflow because those are outside the assignment scope.
-
-## Improvements with more time
-
-- Add OCR for scanned PDFs and table-aware parsing.
-- Persist document hashes, embeddings, and indexes in a vector database.
-- Add reranking and an evaluation set for retrieval recall and answer faithfulness.
-- Add streaming answers, conversation history, observability, rate limiting, and authentication.
-- Add automated citation verification that checks every cited source number exists in the retrieved context.
