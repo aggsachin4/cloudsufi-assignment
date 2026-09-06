@@ -60,19 +60,5 @@ pytest -q
 
 Do not commit `.env`; `.env.example` contains only the configuration shape.
 
-## Known limitations
 
-- Only text-based PDFs are supported; scanned PDFs need OCR before upload.
-- Chroma runs in memory for the active Streamlit session, so documents and vectors are rebuilt after a restart.
-- Retrieval uses semantic similarity only. It does not yet apply metadata filters, hybrid search, or reranking.
-- The model is instructed and validated to cite retrieved sources, but LLM output is not a guarantee of factual correctness.
-- The app is intentionally limited to a small, single-user demo: it has no authentication, persistent storage, or background ingestion.
-
-## Improvements with more time
-
-- Add OCR and table-aware PDF parsing for image-based and complex documents.
-- Persist Chroma collections using document hashes to avoid re-embedding unchanged files.
-- Add hybrid retrieval, reranking, and an evaluation set that measures retrieval recall, citation precision, and answer faithfulness.
-- Add streaming answers, retries, rate limiting, structured logs, metrics, authentication, and multi-user isolation.
-- Store text offsets or section headings to provide more precise citations than page-level references.
 
