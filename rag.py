@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
 from typing import BinaryIO, Iterable
 from uuid import uuid4
 
@@ -36,11 +35,12 @@ class GroundedAnswer(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
 
 
-@dataclass(frozen=True)
-class RetrievedDocument:
+class RetrievedDocument(BaseModel):
+    """A Chroma retrieval result with validated source metadata."""
+
     document: Document
     score: float
-    source_number: int
+    source_number: int = Field(ge=1)
 
 
 def _clean_text(text: str) -> str:
@@ -72,6 +72,7 @@ def extract_documents(
             page_text = _clean_text(page.extract_text() or "")
             if not page_text:
                 continue
+            # Split per page so every generated chunk retains a useful citation target.
             for text in splitter.split_text(page_text):
                 documents.append(
                     Document(
@@ -95,6 +96,8 @@ class RAGIndex:
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not configured.")
         self.vectorstore = Chroma(
+            # A unique session collection prevents a newly uploaded document set
+            # from being mixed with vectors from a prior Streamlit session.
             collection_name=f"document_qa_{uuid4().hex}",
             embedding_function=GoogleGenerativeAIEmbeddings(
                 model=embedding_model,
@@ -168,6 +171,8 @@ def answer_question(
     chain = ANSWER_PROMPT | chat_model.with_structured_output(GroundedAnswer)
     response = chain.invoke({"question": request.question, "context": context})
 
+    # Do not render citations that the model emitted but that were not supplied
+    # in this request's retrieval context.
     valid_sources = {item.source_number for item in retrieved}
     valid_citations = [
         citation for citation in response.citations if citation.source_number in valid_sources
