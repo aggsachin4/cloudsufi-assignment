@@ -1,25 +1,34 @@
 from io import BytesIO
 from unittest.mock import Mock, patch
 
-from rag import _split_text, extract_chunks
+import pytest
+from pydantic import ValidationError
+
+from rag import GroundedAnswer, QuestionRequest, extract_documents
 
 
-def test_split_text_keeps_overlap_and_stops_at_end():
-    words = " ".join(f"word{i}" for i in range(20))
-    chunks = _split_text(words, chunk_size=8, overlap=2)
-
-    assert chunks[0].split()[-2:] == chunks[1].split()[:2]
-    assert chunks[-1].split()[-1] == "word19"
-
-
-def test_extract_chunks_preserves_source_and_page_metadata():
+def test_extract_documents_keeps_page_metadata_and_splits_with_langchain():
     page = Mock()
-    page.extract_text.return_value = "A useful sentence from the document."
+    page.extract_text.return_value = "A useful sentence from the document. " * 10
     fake_reader = Mock(pages=[page])
 
     with patch("rag.PdfReader", return_value=fake_reader):
-        chunks = extract_chunks([("example.pdf", BytesIO(b"pdf bytes"))])
+        documents = extract_documents(
+            [("example.pdf", BytesIO(b"pdf bytes"))], chunk_size=80, chunk_overlap=20
+        )
 
-    assert chunks[0].source == "example.pdf"
-    assert chunks[0].page == 1
-    assert chunks[0].chunk_number == 1
+    assert len(documents) > 1
+    assert documents[0].metadata == {
+        "source": "example.pdf",
+        "page": 1,
+        "chunk_number": 1,
+    }
+    assert documents[1].metadata["chunk_number"] == 2
+
+
+def test_structured_models_validate_question_and_citation_shape():
+    answer = GroundedAnswer(answer="Supported answer.", citations=[{"source_number": 1}])
+    assert answer.citations[0].source_number == 1
+
+    with pytest.raises(ValidationError):
+        QuestionRequest(question="")

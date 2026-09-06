@@ -36,17 +36,17 @@ Open the local URL shown by Streamlit, upload 1-3 PDFs, click **Process document
 ## Architecture
 
 1. **Ingestion:** `pypdf` extracts text page by page. Each chunk retains the original filename and page number.
-2. **Chunking:** text is split into approximately 900-word chunks with 150 words of overlap. Overlap reduces the chance of losing context at chunk boundaries.
-3. **Indexing:** Gemini `gemini-embedding-001` creates vectors. For this assignment's small input size, vectors are stored in memory and ranked with cosine similarity using NumPy.
+2. **Chunking:** LangChain's `RecursiveCharacterTextSplitter` splits each page into approximately 3,500-character chunks with 500 characters of overlap, favouring natural paragraph and sentence boundaries.
+3. **Indexing:** LangChain's Gemini embeddings create vectors in an in-memory Chroma collection. Each chunk keeps filename, page, and chunk-number metadata.
 4. **Retrieval:** the top five chunks are selected for each question.
-5. **Generation:** Gemini `gemini-2.5-flash` receives only the selected excerpts. The system prompt requires it to answer from those excerpts and cite them as `[Source N]`.
+5. **Generation:** LangChain's Gemini chat model receives only the selected excerpts and returns a Pydantic-validated answer with structured source-number citations.
 6. **UI citations:** each source expands to show the filename, page, similarity score, and exact retrieved text.
 
 The separation between `rag.py` and `app.py` keeps the RAG logic testable and the UI thin.
 
 ## Testing
 
-The deterministic chunking and metadata tests can run without an API key:
+The deterministic splitting, metadata, and Pydantic validation tests can run without an API key:
 
 ```bash
 pytest -q

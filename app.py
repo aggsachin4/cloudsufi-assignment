@@ -5,12 +5,11 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
-from rag import answer_question, create_gemini_client, extract_chunks, get_model_settings, RAGIndex
+from rag import RAGIndex, answer_question, create_chat_model, extract_documents, get_model_settings
 
 load_dotenv()
 
 st.set_page_config(page_title="Document Q&A", page_icon="📚", layout="wide")
-
 st.title("Document Q&A")
 st.caption("Upload up to three PDFs, then ask questions grounded in their content.")
 
@@ -24,7 +23,7 @@ with st.sidebar:
     )
     process_documents = st.button("Process documents", type="primary", use_container_width=True)
     st.divider()
-    st.caption("Answers use the selected excerpts and include document/page citations.")
+    st.caption("Chroma retrieves relevant excerpts; Gemini returns a structured answer with citations.")
 
 if "index" not in st.session_state:
     st.session_state.index = None
@@ -40,15 +39,14 @@ if process_documents:
         st.sidebar.error("Add GEMINI_API_KEY to .env, then restart the app.")
     else:
         try:
-            with st.spinner("Extracting text and creating embeddings..."):
-                files = [(file.name, file) for file in uploaded_files]
-                chunks = extract_chunks(files)
+            with st.spinner("Extracting text and creating Chroma embeddings..."):
+                documents = extract_documents([(file.name, file) for file in uploaded_files])
                 _, embedding_model = get_model_settings()
-                index = RAGIndex(create_gemini_client(), embedding_model)
-                index.build(chunks)
+                index = RAGIndex(embedding_model)
+                index.build(documents)
                 st.session_state.index = index
                 st.session_state.document_names = [file.name for file in uploaded_files]
-            st.sidebar.success(f"Indexed {len(chunks)} chunks.")
+            st.sidebar.success(f"Indexed {len(documents)} chunks in Chroma.")
         except Exception as error:
             st.sidebar.error(f"Could not process documents: {error}")
 
@@ -69,22 +67,25 @@ else:
             st.warning("Enter a question first.")
         else:
             try:
-                chat_model, _ = get_model_settings()
-                with st.spinner("Searching the documents and writing an answer..."):
+                chat_model_name, _ = get_model_settings()
+                with st.spinner("Searching Chroma and writing a grounded answer..."):
                     retrieved = st.session_state.index.search(question, top_k=5)
-                    answer = answer_question(
-                        st.session_state.index.client,
-                        chat_model,
-                        question,
-                        retrieved,
+                    result = answer_question(
+                        create_chat_model(chat_model_name), question, retrieved
                     )
                 st.subheader("Answer")
-                st.markdown(answer)
+                st.write(result.answer)
+                if result.citations:
+                    st.caption(
+                        "Cited excerpts: "
+                        + ", ".join(f"Source {item.source_number}" for item in result.citations)
+                    )
                 st.subheader("Retrieved sources")
-                for number, result in enumerate(retrieved, start=1):
-                    label = f"Source {number}: {result.chunk.source}, page {result.chunk.page}"
+                for item in retrieved:
+                    metadata = item.document.metadata
+                    label = f"Source {item.source_number}: {metadata['source']}, page {metadata['page']}"
                     with st.expander(label):
-                        st.caption(f"Similarity score: {result.score:.3f}")
-                        st.write(result.chunk.text)
+                        st.caption(f"Relevance score: {item.score:.3f}")
+                        st.write(item.document.page_content)
             except Exception as error:
                 st.error(f"Could not answer the question: {error}")

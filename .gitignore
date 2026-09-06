@@ -1,4 +1,5 @@
 .env
+INTERVIEW_GUIDE.md
 .venv/
 __pycache__/
 .pytest_cache/
