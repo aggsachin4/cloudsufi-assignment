@@ -13,7 +13,7 @@ A small RAG-based PDF question-answering application built for the Cloudsufi tak
 
 ```bash
 python -m venv .venv
-# Windows PowerShell
+
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
